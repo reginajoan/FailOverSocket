@@ -81,7 +81,7 @@ public class FailOverSocket {
     public static String RunningProgram(String dataDB, int timeout) throws Exception{
         String getFromHli = "";
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        Future<String> future = executor.submit(new Task1(dataDB));
+        Future<String> future = executor.submit(new Task(dataDB));
 
         try {
             System.out.println("Server 1 running");
@@ -120,6 +120,52 @@ public class FailOverSocket {
             executor.shutdownNow();
             return e.getMessage();
         }
+    }
+}
+
+class Task implements Callable<String> {
+    private String dataDB;
+    private static Socket clientSocket = null;
+    public Task(String dataDB){
+        this.dataDB = dataDB;
+    }
+
+    @Override
+    public String call() {
+        try {
+            return SendAndGetFromHLI(dataDB);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "err call";
+        }
+    }
+
+    public static String SendAndGetFromHLI(String dataDB){
+        String print = "";
+        System.out.println("Send data to server 1 : "+dataDB);
+        try{
+            clientSocket = new Socket("192.168.88.98",1212);
+            clientSocket.getOutputStream().write(dataDB.getBytes("ASCII"));
+            clientSocket.setKeepAlive(true);
+            while (clientSocket.getInputStream().available() == 0) {
+                Thread.sleep(100L);
+            }
+            byte[] data = new byte[clientSocket.getInputStream().available()];
+            int bytes = clientSocket.getInputStream().read(data, 0, data.length);
+            print = new String(data, 0, bytes, "ASCII");//.substring(4,bytes);
+            System.out.println("from server : "+print);
+            clientSocket.close();
+            return print;
+        } catch (IOException ex) {
+            return ex.getMessage();
+        } catch (InterruptedException ie) {
+            return ie.getMessage();
+        } catch (Exception e) {
+            return e.getMessage();
+        }
+    }
+    public static void close() throws IOException {
+        clientSocket.close();
     }
 }
 
